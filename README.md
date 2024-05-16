@@ -1,2 +1,6 @@
 # content-log-viewer
-View Minecraft Bedrock Edition Content Log messages
+Minecraft Bedrock Edition Content Log Viewer
+
+App: [DialogueDesigner](https://jannisx11.github.io/content-log-viewer/)
+
+Documentation: [docs/documentation.md](https://github.com/JannisX11/content-log-viewer/blob/main/docs/documentation.md)
