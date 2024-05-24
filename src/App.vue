@@ -6,9 +6,15 @@
 	<div id="wrapper" >
 		<header>
 			<h1>Content Log Viewer</h1>
+			<button @click="pasteLog()"></button>
 		</header>
 		<main>
-			
+			<div id="list_section">
+				
+			</div>
+			<div id="details_section">
+				
+			</div>
 		</main>
 	</div>
 </template>
