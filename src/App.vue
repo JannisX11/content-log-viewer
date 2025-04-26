@@ -6,36 +6,165 @@
 	<div id="wrapper" >
 		<header>
 			<h1>Content Log Viewer</h1>
-			<button @click="pasteLog()"></button>
+			<button @click="pasteLog()">Paste Log</button>
 		</header>
-		<main>
-			<div id="list_section">
-				
+		<div id="list_section">
+			<div class="search_bar">
+				<input type="text" v-model="search_term">
+				<Search :size="20" />
 			</div>
-			<div id="details_section">
-				
-			</div>
-		</main>
+			<ul class="group_bar">
+				<li v-for="(value, key) in group_categories" @click="groupBy(key)" :class="{selected: group_by == key}" :title="'Group by: ' + value">{{ value }}</li>
+				<span style="margin-left: auto;">{{ groups.length }} ({{ issues.length }})</span>
+			</ul>
+			<ul class="issue_group_list">
+				<li class="issue_group"
+					v-for="group of groups"
+					@click="selected_group = group.key"
+					:class="{selected: selected_group == group.key}"
+				>
+					<div class="issue_group_header">
+						<div class="issue_group_toggle issue_icon" @click="group_opened[group.key] ? delete group_opened[group.key] : group_opened[group.key] = true">
+							<ChevronRight v-if="group_opened[group.key] != true" :size="20" />
+							<ChevronDown v-else :size="20" />
+						</div>
+						<div class="severity issue_icon" v-if="group.severity">
+							<AlertTriangle v-if="group.severity == 'warning'" style="color: var(--color-warning)" :size="20" />
+							<AlertCircle v-else style="color: var(--color-error)" :size="20" />
+						</div>
+						<span class="issue_group_count">{{ group.issues.length }}</span>
+						<label>{{ group.name }}</label>
+						<button @click="clearGroup(group)">Clear</button>
+					</div>
+					<ul v-if="group_opened[group.key]">
+						<li v-for="issue in group.issues">
+							{{ issue.original_message }}
+						</li>
+					</ul>
+				</li>
+			</ul>
+		</div>
+		<div id="details_section">
+			
+		</div>
 	</div>
 </template>
 
 
-<script>
+<script lang="ts">
 
-import { Plus } from 'lucide-vue-next'
+import { Plus, Search, AlertTriangle, AlertCircle, ChevronRight, ChevronDown } from 'lucide-vue-next'
+import { Issue, parseLog } from './scripts/parse_log'
+// @ts-ignore
+import demo_log from './../log samples/1.txt?raw'
 
+parseLog(demo_log);
+
+
+type IssueGroup = {
+	key: string
+	name: string
+	issues: Issue[],
+	severity?: string
+}
 
 export default {
 	components: {
-		Plus
+		Plus,
+		Search,
+		AlertTriangle,
+		AlertCircle,
+		ChevronRight,
+		ChevronDown
 	},
 	data() {
 		return {
+			group_by: 'issue',
+			search_term: '',
+			issues: Issue.all,
+			selected_group: null as null|string,
+			selected_issue: null as null|string,
+			group_opened: {} as Record<string, boolean>,
+			group_categories: {
+				issue: 'Issue',
+				asset: 'Asset',
+				resource: 'Resource',
+			}
 		}
 	},
 	methods: {
+		groupBy(v) {
+			this.group_by = v;
+		},
+		async pasteLog() {
+			let text = await navigator.clipboard.readText();
+			parseLog(text);
+			this.update();
+		},
+		update() {
+			this.search_term = 'a';
+			this.search_term = '';
+		},
+		clearGroup(group: IssueGroup) {
+			let issue_ids = group.issues.map(issue => issue.original_message);
+			let filtered_issues = Issue.all.filter(issue => !issue_ids.find(id => issue.original_message == id));
+			this.issues.splice(0, Infinity, ...filtered_issues);
+			this.update();
+		}
+	},
+	computed: {
+		groups(): IssueGroup[] {
+			let groups: Record<string, IssueGroup> = {};
+
+			for (let issue of this.issues) {
+				if (issue.filter(this.search_term) == false) continue;
+
+				if (this.group_by == 'issue') {
+					let key = issue.type.id;
+					if (!groups[key]) {
+						groups[key] = {
+							key,
+							name: issue.type.name,
+							issues: [],
+							severity: issue.severity
+						};
+					}
+					groups[key].issues.push(issue);
+				} else if (this.group_by == 'asset') {
+					let key = issue.asset_id ?? ''
+					if (!groups[key]) {
+						groups[key] = {
+							key,
+							name: issue.asset_id ?? 'Other',
+							issues: [],
+							severity: issue.severity
+						};
+					}
+					groups[key].issues.push(issue);
+				} else if (this.group_by == 'resource') {
+					let key = issue.resource_id ?? ''
+					if (!groups[key]) {
+						groups[key] = {
+							key,
+							name: issue.resource_id ?? 'Other',
+							issues: [],
+							severity: issue.severity
+						};
+					}
+					groups[key].issues.push(issue);
+				}
+			}
+			return Object.keys(groups).map(key => groups[key]);
+		}
 	},
 	mounted() {
+		document.addEventListener('paste', (event) => {
+			const pasted_text = event.clipboardData?.getData('text');
+			if (pasted_text) {
+				parseLog(pasted_text);
+				this.update();
+			}
+		});
 	}
 }
 </script>
@@ -47,10 +176,10 @@ export default {
 	height: 100%;
 	display: grid;
 	grid-template-rows: 40px auto;
-	grid-template-columns: 300px auto;
+	grid-template-columns: 50% 50%;
 	grid-template-areas: 
 		"header header"
-		"sidebar editor";
+		"list details";
 }
 header {
 	grid-area: header;
@@ -69,12 +198,99 @@ h1 {
 header .tool {
 	min-width: 90px;
 }
-main {
-	grid-area: editor;
+#list_section {
+	grid-area: list;
+	overflow: hidden;
 	display: flex;
 	flex-direction: column;
+	border-right: 1px solid var(--color-border);
+}
+.group_bar {
+	display: flex;
+	padding: 5px 8px;
+	gap: 6px;
+	list-style: none;
+	align-items: center;
+}
+.group_bar > li {
+	background-color: var(--color-editor);
+	border-radius: 5px;
+	padding: 5px 12px;
+	text-align: b;
+	cursor: pointer;
+}
+.group_bar > li:hover {
+	background-color: var(--color-hover);
+}
+.group_bar > li.selected {
+	background-color: var(--color-accent);
+	color: black;
+}
+.search_bar {
+	margin: 8px 10px;
+	position: relative;
+}
+.search_bar > input {
+	width: 100%;
+	height: 40px;
+	border-radius: 20px;
+	padding: 5px 16px;
+}
+.search_bar > svg {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: 14px;
+	margin: auto;
+}
+.issue_icon {
+	display: block;
+    text-align: center;
+    width: 32px;
+    /* height: 30px; */
+    padding-top: 5px;
+}
+.issue_group_list {
+	overflow-y: auto;
 	flex-grow: 1;
+}
+.issue_group {
+	background: var(--color-editor);
+    margin: 5px;
+    padding: 4px 2px;
+    border-radius: 20px;
+}
+.issue_group button {
+	border-radius: 20px;
+	padding: 4px 16px;
+}
+.issue_group_header {
+	display: flex;
+	height: 44px;
+	padding: 4px;
+	align-items: center;
+}
+.issue_group_toggle {
+	cursor: pointer;
+	color: var(--color-placeholder);
+}
+.issue_group_toggle:hover {
+	color: var(--color-text);
+}
+.issue_group_count {
+    color: var(--color-placeholder);
+    margin: 0 4px;
+    min-width: 25px;
+}
+.issue_group_header > label {
+	flex-grow: 1;
+}
+
+#details_section {
+	grid-area: details;
 	overflow: hidden;
+	overflow-y: auto;
+
 }
 @media only screen and (max-width: 800px) {
 }

@@ -1,66 +1,89 @@
-/*
-[Geometry][error]-spark:invisible_boat_car | spark:invisible_boat_car | geometry not found?
+import { IssueType, IssueTypes, IssueTypeUnknown } from "./issue_types"
 
-[Geometry][error]-spark:sb_door_window | spark:sb_door_window | Invalid render controller: controller.render.spark.furniture
 
-[Texture][warning]-The block named spark.sponge:mr_krabs_black_floor used in a "blocks.json" file does not exist in the registry
-
-*/
-interface IssueType {
-	pattern: RegExp
-	name: string
-}
-const IssueTypes: {[type: string]: IssueType} = {
-	geometry_not_found: {
-		pattern: /(geometry) not found/,
-		name: 'Geomtry not found',
-	},
-	invalid_asset: {
-		pattern: /Invalid render controller:/,
-		name: 'Invalid Render Controller',
-	},
-	blocks_json_block_missing: {
-		pattern: /The block named [\w.-]+ used in a "blocks\.json" file does not exist in the registry/,
-		name: 'Block name used in "blocks.json" does not exist',
+function extractVariables(template: string, input: string): Record<string, string> | null {
+	let variables: Record<string, string> = {};
+    for (let ti = 0, ii = 0; ti < template.length; ti++) {
+		let t_char = template[ti];
+		let i_char = input[ii];
+		if (t_char == '{') {
+			let var_end: number = template.substring(ti).search('}');
+			let variable: string = template.substring(ti+1, ti+var_end);
+			ti += var_end+1;
+			let pattern_match_end: number = template[ti] ? input.substring(ii).search(template[ti]) : -1;
+			let value: string = input.substring(ii, pattern_match_end != -1 ? ii+pattern_match_end : undefined);
+			ii += value.length;
+			if (value) variables[variable] = value;
+		} else if (t_char != i_char) {
+			return null;
+		}
+		ii++;
 	}
+	return variables;
 }
 
-class Issue {
+export class Issue {
 	type: IssueType
+	original_message: string
+	
 	severity: 'warning'|'error'
-	asset_type: string
-	asset_identifier: string
-	text: string
+	asset_type?: string
+	asset_id?: string
+	resource_type?: string
+	resource_id?: string
+	text?: string
 
 	constructor(input: string) {
+		this.original_message = input;
+
 		let tags_section = input.match(/^(\[\w+\])+/)?.[0];
 		if (tags_section) {
-			let tags = tags_section.replace(/\[/, '').split(']').filter(tag => tag);
-			if (tags[0]) this.asset_type = tags[0];
+			let tags = tags_section.replace(/\[/g, '').split(']').filter(tag => tag);
+			if (tags[0]) this.resource_type = tags[0];
 			if (this.asset_type == 'Actor') this.asset_type = 'Entity';
+			console.log(tags[1], tags[1] == 'error')
 			if (tags[1]) this.severity = tags[1] == 'error' ? 'error' : 'warning';
 			input = input.substring(tags_section.length+1);
 		}
 
-		if (this.asset_type == 'Scripting' && this.severity == 'warning') {
+		if (this.resource_type == 'Scripting' && this.severity == 'warning') {
 			this.text = input;
 		} else {
-			let path_sections = input.split(/ | /g);
-			let main = path_sections.pop();
-			if (path_sections[0]) this.asset_identifier = path_sections[0];
-
-			for (let type_id in IssueTypes) {
-				let type = IssueTypes[type_id]
+			for (let type of IssueTypes) {
+				let variables = type.pattern && extractVariables(type.pattern, input);
+				if (variables) {
+					this.type = type;
+					this.asset_type = variables.asset_type ?? type.values?.asset_type ?? '';
+					this.asset_id = variables.asset_id ?? type.values?.asset_id ?? '';
+					this.resource_type = variables.resource_type ?? type.values?.resource_type ?? '';
+					this.resource_id = variables.resource_id ?? type.values?.resource_id ?? '';
+					break;
+				}
 			}
+		}
 
+		if (!this.type) this.type = IssueTypeUnknown;
+
+		if (!Issue.all.find(iss2 => iss2.original_message == this.original_message)) {
+			Issue.all.push(this);
 		}
 	}
-}s
+	filter(search_term: string): boolean {
+		if (!search_term) return true;
+
+		return false;
+	}
+
+	static all: Issue[] = [];
+}
 
 
 export function parseLog(log: string): Issue[] {
-	let lines = log.split(/\n+/);
+	Issue.all.splice(0, Infinity);
+
+	let lines = log.split(/\n+\s*/);
 	let issues = lines.map(line => new Issue(line));
+	console.log(issues)
 
 	return issues;
 }
