@@ -11,7 +11,8 @@
 		<div id="list_section">
 			<div class="search_bar">
 				<input type="text" v-model="search_term">
-				<Search :size="20" />
+				<Search v-if="!search_term" :size="20" />
+				<X v-else :size="20" @click="search_term = ''" />
 			</div>
 			<ul class="group_bar">
 				<li v-for="(value, key) in group_categories" @click="groupBy(key)" :class="{selected: group_by == key}" :title="'Group by: ' + value">{{ value }}</li>
@@ -33,6 +34,7 @@
 							<AlertCircle v-else style="color: var(--color-error)" :size="20" />
 						</div>
 						<span class="issue_group_count">{{ group.issues.length }}</span>
+						<label class="group_type_tag" v-if="group.type">{{ type_labels[group.type] ?? group.type }}</label>
 						<label>{{ group.name }}</label>
 						<button @click="clearGroup(group)">Clear</button>
 					</div>
@@ -44,19 +46,17 @@
 				</li>
 			</ul>
 		</div>
-		<div id="details_section">
-			
-		</div>
 	</div>
 </template>
 
 
 <script lang="ts">
 
-import { Plus, Search, AlertTriangle, AlertCircle, ChevronRight, ChevronDown } from 'lucide-vue-next'
+import { Plus, Search, X, AlertTriangle, AlertCircle, ChevronRight, ChevronDown } from 'lucide-vue-next'
 import { Issue, parseLog } from './scripts/parse_log'
 // @ts-ignore
-import demo_log from './../log samples/1.txt?raw'
+import demo_log from './../log samples/5.txt?raw'
+import { TypeLabels } from './scripts/issue_types';
 
 parseLog(demo_log);
 
@@ -65,6 +65,7 @@ type IssueGroup = {
 	key: string
 	name: string
 	issues: Issue[],
+	type?: string
 	severity?: string
 }
 
@@ -72,6 +73,7 @@ export default {
 	components: {
 		Plus,
 		Search,
+		X,
 		AlertTriangle,
 		AlertCircle,
 		ChevronRight,
@@ -87,9 +89,11 @@ export default {
 			group_opened: {} as Record<string, boolean>,
 			group_categories: {
 				issue: 'Issue',
+				category: 'Category',
 				asset: 'Asset',
 				resource: 'Resource',
-			}
+			},
+			type_labels: TypeLabels
 		}
 	},
 	methods: {
@@ -130,25 +134,38 @@ export default {
 						};
 					}
 					groups[key].issues.push(issue);
+
+				} else if (this.group_by == 'category') {
+					let key = issue.category ?? ''
+					if (!groups[key]) {
+						groups[key] = {
+							key,
+							name: issue.category ?? 'Other',
+							issues: [],
+						};
+					}
+					groups[key].issues.push(issue);
+
 				} else if (this.group_by == 'asset') {
 					let key = issue.asset_id ?? ''
 					if (!groups[key]) {
 						groups[key] = {
 							key,
 							name: issue.asset_id ?? 'Other',
+							type: issue.asset_type,
 							issues: [],
-							severity: issue.severity
 						};
 					}
 					groups[key].issues.push(issue);
+
 				} else if (this.group_by == 'resource') {
 					let key = issue.resource_id ?? ''
 					if (!groups[key]) {
 						groups[key] = {
 							key,
 							name: issue.resource_id ?? 'Other',
+							type: issue.resource_type,
 							issues: [],
-							severity: issue.severity
 						};
 					}
 					groups[key].issues.push(issue);
@@ -176,10 +193,10 @@ export default {
 	height: 100%;
 	display: grid;
 	grid-template-rows: 40px auto;
-	grid-template-columns: 50% 50%;
+	grid-template-columns: 100%;
 	grid-template-areas: 
-		"header header"
-		"list details";
+		"header"
+		"list";
 }
 header {
 	grid-area: header;
@@ -197,13 +214,6 @@ h1 {
 }
 header .tool {
 	min-width: 90px;
-}
-#list_section {
-	grid-area: list;
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	border-right: 1px solid var(--color-border);
 }
 .group_bar {
 	display: flex;
@@ -249,6 +259,7 @@ header .tool {
     width: 32px;
     /* height: 30px; */
     padding-top: 5px;
+	flex-shrink: 0;
 }
 .issue_group_list {
 	overflow-y: auto;
@@ -266,7 +277,6 @@ header .tool {
 }
 .issue_group_header {
 	display: flex;
-	height: 44px;
 	padding: 4px;
 	align-items: center;
 }
@@ -285,13 +295,15 @@ header .tool {
 .issue_group_header > label {
 	flex-grow: 1;
 }
-
-#details_section {
-	grid-area: details;
-	overflow: hidden;
-	overflow-y: auto;
-
+.issue_group_header > label.group_type_tag {
+    flex-grow: 0;
+    padding: 1px 6px;
+    margin-right: 8px;
+    font-weight: 600;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
 }
+
 @media only screen and (max-width: 800px) {
 }
 
