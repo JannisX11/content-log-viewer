@@ -25,7 +25,7 @@
 					:class="{selected: selected_group == group.key}"
 				>
 					<div class="issue_group_header">
-						<div class="issue_group_toggle issue_icon" @click="group_opened[group.key] ? delete group_opened[group.key] : group_opened[group.key] = true">
+						<div class="issue_group_toggle issue_icon" @click="toggleGroup(group)">
 							<ChevronRight v-if="group_opened[group.key] != true" :size="20" />
 							<ChevronDown v-else :size="20" />
 						</div>
@@ -35,15 +35,45 @@
 						</div>
 						<span class="issue_group_count">{{ group.issues.length }}</span>
 						<label class="group_type_tag" v-if="group.type">{{ type_labels[group.type] ?? group.type }}</label>
-						<label>{{ group.name }}</label>
-						<button @click="clearGroup(group)">Clear</button>
+						<label @click="toggleGroup(group)">{{ group.name }}</label>
+						<div class="issue_icon clear_button" @click="clearGroup(group)">
+							<Trash :size="20" />
+						</div>
 					</div>
 					<ul v-if="group_opened[group.key]">
-						<li v-for="issue in group.issues">
-							{{ issue.original_message }}
+						<li v-for="issue in group.issues" class="issue" @click.stop="selectIssue(issue)">
+							<div class="severity issue_icon" v-if="issue.severity">
+								<AlertTriangle v-if="issue.severity == 'warning'" style="color: var(--color-warning)" :size="20" />
+								<AlertCircle v-else style="color: var(--color-error)" :size="20" />
+							</div>
+
+							<template v-if="group_by != 'issue'">
+								<span class="field_value">{{ issue.type.name }}</span>
+							</template>
+							<template v-if="issue.text">
+								<label class="field_label">Message</label>
+								<span class="field_value">{{ issue.text }}</span>
+							</template>
+							<template v-if="issue.asset_id">
+								<label class="field_label">{{ type_labels[issue.asset_type??''] ?? 'ID' }}</label>
+								<span class="field_value">{{ issue.asset_id }}</span>
+							</template>
+							<template v-if="issue.resource_id">
+								<label class="field_label">{{ type_labels[issue.resource_type??''] ?? 'ID' }}</label>
+								<span class="field_value">{{ issue.resource_id }}</span>
+							</template>
+							<template v-for="(value, key) in issue.values">
+								<label class="field_label">{{ value_labels[key] || key }}</label>
+								<span class="field_value" :class="{limited_length: key == 'file_path'}">{{ value }}</span>
+							</template>
+
+							<div class="issue_icon clear_button" @click="clearIssue(issue)">
+								<Trash :size="20" />
+							</div>
 						</li>
 					</ul>
 				</li>
+				<template v-if="groups.length == 0">No issues...</template>
 			</ul>
 		</div>
 	</div>
@@ -52,13 +82,17 @@
 
 <script lang="ts">
 
-import { Plus, Search, X, AlertTriangle, AlertCircle, ChevronRight, ChevronDown } from 'lucide-vue-next'
+import { Plus, Search, Trash, X, AlertTriangle, AlertCircle, ChevronRight, ChevronDown } from 'lucide-vue-next'
 import { Issue, parseLog } from './scripts/parse_log'
-// @ts-ignore
-import demo_log from './../log samples/5.txt?raw'
-import { TypeLabels } from './scripts/issue_types';
+import { IssueTypes, TypeLabels, ValueLabels } from './scripts/issue_types';
 
+/*
+// @ts-ignore
+import demo_log from './../log samples/all.txt?raw'
 parseLog(demo_log);
+*/
+
+const collator = new Intl.Collator('en');
 
 
 type IssueGroup = {
@@ -73,6 +107,7 @@ export default {
 	components: {
 		Plus,
 		Search,
+		Trash,
 		X,
 		AlertTriangle,
 		AlertCircle,
@@ -90,10 +125,11 @@ export default {
 			group_categories: {
 				issue: 'Issue',
 				category: 'Category',
-				asset: 'Asset',
+				asset: 'Object',
 				resource: 'Resource',
 			},
-			type_labels: TypeLabels
+			type_labels: TypeLabels,
+			value_labels: ValueLabels,
 		}
 	},
 	methods: {
@@ -106,20 +142,44 @@ export default {
 			this.update();
 		},
 		update() {
-			this.search_term = 'a';
-			this.search_term = '';
+			console.log('UPDATE')
+			let g = this.group_by;
+			this.group_by = 'a';
+			this.group_by = g;
+		},
+		toggleGroup(group) {
+			this.group_opened[group.key] ? delete this.group_opened[group.key] : this.group_opened[group.key] = true;
 		},
 		clearGroup(group: IssueGroup) {
 			let issue_ids = group.issues.map(issue => issue.original_message);
 			let filtered_issues = Issue.all.filter(issue => !issue_ids.find(id => issue.original_message == id));
 			this.issues.splice(0, Infinity, ...filtered_issues);
 			this.update();
+		},
+		clearIssue(issue: Issue) {
+			let filtered_issues = Issue.all.filter(is2 => is2.original_message != issue.original_message);
+			this.issues.splice(0, Infinity, ...filtered_issues);
+			this.update();
+		},
+		selectIssue(issue: Issue) {
+			this.selected_issue = issue.original_message;
+			console.log(issue);
 		}
 	},
 	computed: {
 		groups(): IssueGroup[] {
-			let groups: Record<string, IssueGroup> = {};
+			let groups: Record<string, IssueGroup|undefined> = {};
 
+			// Establish group order
+			if (this.group_by == 'issue') {
+				for (let issue_type of IssueTypes) {
+					groups[issue_type.id] = undefined;
+				}
+				groups.script_warning = undefined;
+				groups.script_error = undefined;
+			}
+
+			// Create groups
 			for (let issue of this.issues) {
 				if (issue.filter(this.search_term) == false) continue;
 
@@ -136,22 +196,22 @@ export default {
 					groups[key].issues.push(issue);
 
 				} else if (this.group_by == 'category') {
-					let key = issue.category ?? ''
+					let key = issue.category || ''
 					if (!groups[key]) {
 						groups[key] = {
 							key,
-							name: issue.category ?? 'Other',
+							name: issue.category || 'Other',
 							issues: [],
 						};
 					}
 					groups[key].issues.push(issue);
 
 				} else if (this.group_by == 'asset') {
-					let key = issue.asset_id ?? ''
+					let key = issue.asset_id || ''
 					if (!groups[key]) {
 						groups[key] = {
 							key,
-							name: issue.asset_id ?? 'Other',
+							name: issue.asset_id || 'Other',
 							type: issue.asset_type,
 							issues: [],
 						};
@@ -159,19 +219,23 @@ export default {
 					groups[key].issues.push(issue);
 
 				} else if (this.group_by == 'resource') {
-					let key = issue.resource_id ?? ''
+					let key = issue.resource_id || ''
 					if (!groups[key]) {
 						groups[key] = {
 							key,
-							name: issue.resource_id ?? 'Other',
-							type: issue.resource_type,
+							name: issue.resource_id || 'Other',
+							type: issue.resource_id ? issue.resource_type : '',
 							issues: [],
 						};
 					}
 					groups[key].issues.push(issue);
 				}
 			}
-			return Object.keys(groups).map(key => groups[key]);
+			let groups_list = Object.keys(groups).map(key => groups[key]).filter(g => typeof g == 'object');
+			if (this.group_by == 'asset') {
+				groups_list.sort((a, b) => collator.compare(a.type!, b.type!));
+			}
+			return groups_list;
 		}
 	},
 	mounted() {
@@ -214,6 +278,15 @@ h1 {
 }
 header .tool {
 	min-width: 90px;
+}
+#list_section {
+	grid-area: list;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	max-width: 1000px;
+	margin: 0 auto;
 }
 .group_bar {
 	display: flex;
@@ -261,6 +334,14 @@ header .tool {
     padding-top: 5px;
 	flex-shrink: 0;
 }
+.clear_button {
+	margin-left: auto;
+	margin-right: 3px;
+	cursor: pointer;
+}
+.clear_button:hover {
+	color: var(--color-highlight);
+}
 .issue_group_list {
 	overflow-y: auto;
 	flex-grow: 1;
@@ -302,6 +383,36 @@ header .tool {
     font-weight: 600;
     border: 1px solid var(--color-border);
     border-radius: 8px;
+}
+
+.issue {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+    margin: 5px;
+	padding: 5px;
+	border-radius: 18px;
+    background: var(--color-background);
+}
+.field_label {
+	padding: 0 4px;
+    margin-right: 4px;
+    margin-left: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+}
+.field_label:after {
+	content: ":";
+}
+.field_value {
+	overflow-wrap: break-word;
+    max-width: 100%;
+}
+.field_value.limited_length {
+	overflow-wrap: unset;
+	overflow: hidden;
+    max-width: min(420px, 100%);
+    white-space: nowrap;
 }
 
 @media only screen and (max-width: 800px) {

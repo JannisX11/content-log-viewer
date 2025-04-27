@@ -1,5 +1,4 @@
-import { IssueType, IssueTypes, IssueTypeScriptError, IssueTypeScriptWarning, IssueTypeUnknown } from "./issue_types"
-
+import { IssueType, IssueTypes, IssueTypeScriptError, IssueTypeScriptWarning, IssueTypeUnknown, TypeAliases } from "./issue_types"
 
 function extractVariables(template: string, input: string): Record<string, string> | null {
 	let variables: Record<string, string> = {};
@@ -10,10 +9,37 @@ function extractVariables(template: string, input: string): Record<string, strin
 			let var_end: number = template.substring(ti).search('}');
 			let variable: string = template.substring(ti+1, ti+var_end);
 			ti += var_end+1;
-			let pattern_match_end: number = template[ti] ? input.substring(ii).indexOf(template[ti]) : -1;
-			let value: string = input.substring(ii, pattern_match_end != -1 ? ii+pattern_match_end : undefined);
-			ii += value.length;
-			if (value) variables[variable] = value;
+			let end_match = template[ti] ? template[ti]+(template[ti+1]??'') : '';
+
+			if (variable.includes('|')) {
+				let pattern_match_end: number = template[ti] ? input.substring(ii).lastIndexOf(end_match) : -1;
+				let value: string = input.substring(ii, pattern_match_end != -1 ? ii+pattern_match_end : undefined);
+				ii += value.length;
+				console.log({variable, value, pattern_match_end, char: template[ti]});
+				let values = value.split(/\s*\|\s*/);
+				let keys = variable.split('|');
+				// @ts-ignore
+				if (keys.length && values.length) variables[keys.shift()??''] = values.shift();
+				// @ts-ignore
+				if (keys.length && values.length) variables[keys.pop()??''] = values.pop();
+				while (keys.length > 1 && values.length) {
+					// @ts-ignore
+					if (keys.length && values.length) variables[keys.pop()??''] = values.pop();
+				}
+				if (keys.length == 1) {
+					variables[keys[0]] = values.join(' | ');
+				}
+
+			} else {
+				let pattern_match_end: number = template[ti] ? input.substring(ii).indexOf(end_match) : -1;
+				let value: string = input.substring(ii, pattern_match_end != -1 ? ii+pattern_match_end : undefined);
+				console.log({variable, value, pattern_match_end, char: template[ti]});
+				
+				ii += value.length;
+				if (value) variables[variable] = value;
+			}
+
+
 		} else if (t_char != i_char) {
 			return null;
 		}
@@ -50,6 +76,7 @@ export class Issue {
 
 	constructor(input: string) {
 		this.original_message = input;
+		this.values = {};
 
 		let tags_section = input.match(/^(\[\w+\])+/)?.[0];
 		if (tags_section) {
@@ -59,33 +86,46 @@ export class Issue {
 			if (this.category == 'Actor') this.category = 'Entity';
 
 			if (tags[1]) this.severity = tags[1] == 'error' ? 'error' : 'warning';
-			input = input.substring(tags_section.length+1);
+			input = input.substring(tags_section.length+1).replace(/[\r\n]+/g, '');
 		}
 
-		if (this.resource_type == 'Scripting') {
+		for (let type of IssueTypes) {
+			let variables = type.pattern && extractVariables(type.pattern, input);
+			if (variables) {
+				this.type = type;
+
+				this.asset_type = variables.asset_type ?? type.values?.asset_type ?? '';
+				this.asset_id = variables.asset_id ?? type.values?.asset_id ?? '';
+				this.resource_type = variables.resource_type ?? type.values?.resource_type ?? '';
+				this.resource_id = variables.resource_id ?? type.values?.resource_id ?? '';
+
+				delete variables.asset_type;
+				delete variables.asset_id;
+				delete variables.resource_type;
+				delete variables.resource_id;
+				if (variables) Object.assign(this.values, variables);
+
+				break;
+			}
+		}
+		if (this.resource_type && TypeAliases[this.resource_type]) {
+			this.resource_type = TypeAliases[this.resource_type];
+		}
+		if (this.type?.category) {
+			this.category = this.type.category;
+		}
+		
+		if (!this.type && this.category == 'Scripting') {
 			this.text = input;
 			if (this.severity == 'warning') {
 				this.type = IssueTypeScriptWarning;
 			} else {
 				this.type = IssueTypeScriptError;
 			}
-		} else {
-			this.text = input;
-			for (let type of IssueTypes) {
-				let variables = type.pattern && extractVariables(type.pattern, input);
-				if (variables) {
-					this.type = type;
-					this.asset_type = variables.asset_type ?? type.values?.asset_type ?? '';
-					this.asset_id = variables.asset_id ?? type.values?.asset_id ?? '';
-					this.resource_type = variables.resource_type ?? type.values?.resource_type ?? '';
-					this.resource_id = variables.resource_id ?? type.values?.resource_id ?? '';
-					Object.assign(this.values, variables);
-					break;
-				}
-			}
+		} else if (!this.type) {
+			this.type = IssueTypeUnknown;
+			this.values.message = this.original_message;
 		}
-
-		if (!this.type) this.type = IssueTypeUnknown;
 
 		if (!Issue.all.find(iss2 => iss2.original_message == this.original_message)) {
 			Issue.all.push(this);
@@ -123,10 +163,13 @@ export class Issue {
 export function parseLog(log: string) {
 	Issue.all.splice(0, Infinity);
 
-	let lines = log.split(/\n+\s*/);
+	let lines = log.split(/[\r\n]+\[/g);
 	for (let line of lines) {
-		if (line && lines.length > 5 && line.includes('[')) {
-			new Issue(line);
+		console.log(line)
+		if (line && line.length > 5) {
+			console.log(line)
+			new Issue(line.startsWith('[') ? line : ('['+line));
 		}
 	}
+	console.log(Issue.all)
 }

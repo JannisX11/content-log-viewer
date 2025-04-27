@@ -3,6 +3,7 @@ export interface IssueType {
 	name: string
 	pattern?: string
 	description?: string
+    category?: string
 	values?: {
         asset_type?: string
         asset_id?: string
@@ -16,7 +17,7 @@ export const IssueTypes: IssueType[] = [
 	{
 		id: 'geometry_not_found',
 		pattern: '{asset_id} | {asset_id} | geometry not found?',
-		name: 'Geomtry missing',
+		name: 'Geometry missing',
 		description: 'A block or entity referenced a geometry which could not be found.',
 		values: {
             asset_type: 'entity',
@@ -37,6 +38,7 @@ export const IssueTypes: IssueType[] = [
 		id: 'blocks_json_block_missing',
 		pattern: 'The block named {asset_id} used in a "blocks.json" file does not exist in the registry',
 		name: 'Block name used in "blocks.json" does not exist',
+        category: 'Blocks',
 		values: {
             asset_type: 'block',
             resource_type: 'block',
@@ -64,20 +66,64 @@ export const IssueTypes: IssueType[] = [
     },
     {
         id: 'friendly_name_not_found',
-        pattern: "{asset_id} | {asset_id} | {resource_id} | {resource_type} | friendly name '{value}' not found in entity friendly name list ({list}) - check your spelling?",
+        pattern: "{asset_id} | {asset_id} | {resource_id} | {scope} | friendly name '{name}' not found in entity friendly name list ({names}) - check your spelling?",
         name: 'Friendly name not found in entity',
         values: {
+            resource_type: 'render_controller',
             asset_type: 'entity',
         }
     },
     {
         id: 'duplicate_locator',
-        pattern: "{asset_id} | {asset_id} | Locator: Error: model already has a locator {value} that doesn't exactly match the one wanting to be added - skipping new definition in {resource_id}",
+        pattern: "{asset_id} | {asset_id} | Locator: Error: model already has a locator {name} that doesn't exactly match the one wanting to be added - skipping new definition in {resource_id}",
         name: 'Duplicate Locator',
         values: {
             asset_type: 'entity',
             resource_type: 'geometry'
         }
+    },
+    {
+        id: 'animation_not_found',
+        pattern: "Error: can't find animation {resource_id}",
+        name: 'Animation is missing',
+        values: {
+            asset_type: 'entity',
+            resource_type: 'animation'
+        }
+    },
+    // Entity behavior
+    {
+        id: 'load_properties_error',
+        pattern: "{pack_name} | actor_definitions | {file_path} | {asset_id} | minecraft:entity | description | Error loading Actor Properties",
+        name: 'Error loading Entity Properties',
+        values: {
+            asset_type: 'entity'
+        }
+    },
+    {
+        id: 'load_properties_error',
+        pattern: "Actor {asset_id} does not have any properties",
+        name: 'Error loading Entity Properties',
+        values: {
+            asset_type: 'entity'
+        }
+    },
+    {
+        id: 'property_float_type',
+        pattern: "{pack_name} | actor_definitions | {file_path} | {asset_id} | minecraft:entity | description | Error loading property '{name}': {key} should contain only '{correct_type}' type elements",
+        name: 'Property uses integers instead of floats'
+    },
+    {
+        id: 'failed_to_load_spawn_rules',
+        pattern: '{pack_name} | Failed to load spawn rules',
+        name: 'Failed to load spawn rules'
+    },
+
+    // Molang
+    {
+        id: 'property_not_found',
+        pattern: "{context} | Error: {expression} called on an actor without a property component.",
+        name: 'Property missing'
     },
 
     // Block
@@ -125,12 +171,17 @@ export const IssueTypes: IssueType[] = [
     },
     {
         id: 'invalid_json_field',
-        pattern: "{file_path} | {json_path} | {value} | child '{value}' not valid here.",
+        pattern: "{file_path|json_path|value} | child '{value}' not valid here.",
         name: 'Invalid JSON Field'
     },
     {
+        id: 'invalid_json_type',
+        pattern: "{file_path|json_path|name} | unknown child schema option type.  Allowed types:  '{correct_type}'",
+        name: 'Invalid JSON value type',
+    },
+    {
         id: 'json_field_not_found',
-        pattern: '{file_path} | {json_path} | {json_path2} | Required child {key} not found',
+        pattern: '{file_path|json_path} | Required child {key} not found',
         name: 'Required child missing in JSON',
     },
     {
@@ -140,13 +191,44 @@ export const IssueTypes: IssueType[] = [
     },
     {
         id: 'invalid_file',
-        pattern: 'error parsing {file_path}:* {text_position}',
+        pattern: 'error parsing {file_path}:* {json_error}',
         name: 'Error parsing file'
     },
     {
         id: 'invalid_client_biome',
         pattern: "Invalid Client Biome file {file_path}: {json_path}: this member was found in the input, but is not present in the Schema",
         name: 'Invalid Client Biome'
+    },
+
+    // Dialogue
+    {
+        id: 'duplicate_dialogue',
+        pattern: "{file_path} | JSON: {file_name} has an error:  A scene with a scene name of '{name}' already exists. Skipping scene...",
+        name: 'Duplicate scene name',
+        values: {
+            asset_type: 'dialogue'
+        }
+    },
+
+    // Sound
+    {
+        id: 'sound_event_not_found',
+        pattern: "Unable to find event [{resource_id}] to play attached. Please check that the event name exists in sound_definitions.json",
+        name: 'Sound event missing',
+        values: {
+            file_path: 'sounds/sound_definitions.json',
+            resource_type: 'sound_event'
+        }
+    },
+
+    // Structure
+    {
+        id: 'jigsaw_pool_not_found',
+        pattern: "[[Jigsaw Structure]] couldn't be constructed, no pool named `{resource_id}`",
+        name: 'Incorrect Jigsaw Pool',
+        values: {
+            resource_type: 'jigsaw_pool'
+        }
     }
 ];
 
@@ -175,4 +257,33 @@ export const TypeLabels: Record<string, string> = {
     block: 'Block',
     item: 'Item',
     render_controller: 'Render Controller',
+    block_component: 'Block Component',
+    material: 'Material',
+    geometry: 'Geometry',
+    texture: 'Texture',
+    animation: 'Animation',
+    animation_controller: 'Animation Controller',
+    particle: 'Particle',
+    sound_event: 'Sound Event',
+    jigsaw_pool: 'Jigsaw Pool',
+}
+export const TypeAliases: Record<string, string> = {
+    Materials: 'material',
+    Textures: 'texture',
+    Geometries: 'geometry'
+}
+
+export const ValueLabels: Record<string, string> = {
+    message: 'Message',
+    file_path: 'File',
+    json_path: 'JSON Path',
+    pack_name: 'Pack Name',
+    name: 'Name',
+    value: 'Value',
+    names: 'Names',
+    render_controller: 'Render Controller',
+    expression: 'Expression',
+    json_error: 'JSON Error',
+    correct_type: 'Expected Type',
+    scope: 'Scope'
 }
