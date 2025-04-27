@@ -1,5 +1,4 @@
-<script setup>
-
+<script setup lang="ts">
 </script>
 
 <template>
@@ -40,8 +39,9 @@
 							<Trash :size="20" />
 						</div>
 					</div>
+					<p v-if="group.issue_type?.description && group_opened[group.key]" class="description">{{ group.issue_type?.description }}</p>
 					<ul v-if="group_opened[group.key]">
-						<li v-for="issue in group.issues" class="issue" @click.stop="selectIssue(issue)">
+						<li v-for="issue in group.issues" class="issue" :class="{selected: issue == selected_issue}" @pointerdown.stop="pointerDownIssue(issue, $event)" @dblclick.stop="openIssueDetails(issue)">
 							<div class="severity issue_icon" v-if="issue.severity">
 								<AlertTriangle v-if="issue.severity == 'warning'" style="color: var(--color-warning)" :size="20" />
 								<AlertCircle v-else style="color: var(--color-error)" :size="20" />
@@ -70,12 +70,15 @@
 							<div class="issue_icon clear_button" @click="clearIssue(issue)">
 								<Trash :size="20" />
 							</div>
+
+							<p v-if="issue.type.description && group_by != 'issue'" class="description">{{ issue.type.description }}</p>
 						</li>
 					</ul>
 				</li>
 				<template v-if="groups.length == 0">No issues...</template>
 			</ul>
 		</div>
+		<IssueDetails ref="issue_dialog" v-if="selected_issue" :issue="selected_issue" />
 	</div>
 </template>
 
@@ -83,14 +86,16 @@
 <script lang="ts">
 
 import { Plus, Search, Trash, X, AlertTriangle, AlertCircle, ChevronRight, ChevronDown } from 'lucide-vue-next'
+import IssueDetails from './components/IssueDetails.vue';
 import { Issue, parseLog } from './scripts/parse_log'
-import { IssueTypes, TypeLabels, ValueLabels } from './scripts/issue_types';
+import { IssueType, IssueTypes, TypeLabels, ValueLabels } from './scripts/issue_types';
 
-/*
+
 // @ts-ignore
 import demo_log from './../log samples/all.txt?raw'
+import { nextTick } from 'vue';
 parseLog(demo_log);
-*/
+
 
 const collator = new Intl.Collator('en');
 
@@ -99,6 +104,7 @@ type IssueGroup = {
 	key: string
 	name: string
 	issues: Issue[],
+	issue_type?: IssueType
 	type?: string
 	severity?: string
 }
@@ -112,7 +118,8 @@ export default {
 		AlertTriangle,
 		AlertCircle,
 		ChevronRight,
-		ChevronDown
+		ChevronDown,
+		IssueDetails
 	},
 	data() {
 		return {
@@ -120,7 +127,7 @@ export default {
 			search_term: '',
 			issues: Issue.all,
 			selected_group: null as null|string,
-			selected_issue: null as null|string,
+			selected_issue: null as null|Issue,
 			group_opened: {} as Record<string, boolean>,
 			group_categories: {
 				issue: 'Issue',
@@ -161,9 +168,30 @@ export default {
 			this.issues.splice(0, Infinity, ...filtered_issues);
 			this.update();
 		},
+		pointerDownIssue(issue: Issue, event: PointerEvent) {
+			this.selectIssue(issue);
+			const up = (event2: PointerEvent) => {
+				let distance = [
+					Math.abs(event.clientX - event2.clientX),
+					Math.abs(event.clientY - event2.clientY),
+				];
+				if (distance[0] < 4 && distance[1] < 4) {
+					this.openIssueDetails(issue);
+				}
+				// @ts-ignore
+				event.target?.removeEventListener('pointerup', up);
+			}
+			// @ts-ignore
+			event.target?.addEventListener('pointerup', up);
+		},
 		selectIssue(issue: Issue) {
-			this.selected_issue = issue.original_message;
-			console.log(issue);
+			this.selected_issue = issue;
+		},
+		openIssueDetails(issue: Issue) {
+			this.selected_issue = issue;
+			nextTick(() => {
+				if (this.$refs.issue_dialog) this.$refs.issue_dialog.$el.showModal();
+			})
 		}
 	},
 	computed: {
@@ -189,6 +217,7 @@ export default {
 						groups[key] = {
 							key,
 							name: issue.type.name,
+							issue_type: issue.type,
 							issues: [],
 							severity: issue.severity
 						};
@@ -240,6 +269,9 @@ export default {
 	},
 	mounted() {
 		document.addEventListener('paste', (event) => {
+			if (document.querySelector('input:focus, textarea:focus')) {
+				return;
+			}
 			const pasted_text = event.clipboardData?.getData('text');
 			if (pasted_text) {
 				parseLog(pasted_text);
@@ -394,6 +426,9 @@ header .tool {
 	border-radius: 18px;
     background: var(--color-background);
 }
+.issue.selected {
+	background-color: var(--color-hover);
+}
 .field_label {
 	padding: 0 4px;
     margin-right: 4px;
@@ -413,6 +448,14 @@ header .tool {
 	overflow: hidden;
     max-width: min(420px, 100%);
     white-space: nowrap;
+}
+.description {
+	width: 100%;
+    color: var(--color-subtle);
+	margin: 0 8px;
+}
+.issue_group > .description {
+	margin: 2px 40px;
 }
 
 @media only screen and (max-width: 800px) {

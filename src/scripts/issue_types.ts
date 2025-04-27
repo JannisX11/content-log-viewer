@@ -1,3 +1,9 @@
+import { Issue } from "./parse_log"
+
+type Info = string | {
+    text: string
+    if(issue: Issue): boolean
+}
 export interface IssueType {
 	id: string
 	name: string
@@ -10,7 +16,8 @@ export interface IssueType {
         resource_type?: string
         resource_id?: string
         [key: string]: string | undefined
-	}
+	},
+    info?: Info[]
 }
 export const IssueTypes: IssueType[] = [
     // Entity
@@ -80,7 +87,13 @@ export const IssueTypes: IssueType[] = [
         values: {
             asset_type: 'entity',
             resource_type: 'geometry'
-        }
+        },
+        info: [
+            {if: issue => issue.values.name == 'armor_offset.default_neck', text: 'The locator "armor_offset.default_neck" gets added automatically when a geometry has a bone called "head". This is a Minecraft bug, but does not seem to cause issues in practice. One workaround is to avoid naming bones "head".'},
+            'The error message is thrown when an entity uses multiple geometries that each add a locator of the same name.',
+            'To avoid it, either all bone names and pivots of the affected geometries need to be identical, or locators with unique names must be used.',
+            'This issue can cause locators to end up in unexpected locations',
+        ]
     },
     {
         id: 'animation_not_found',
@@ -118,11 +131,16 @@ export const IssueTypes: IssueType[] = [
         pattern: '{pack_name} | Failed to load spawn rules',
         name: 'Failed to load spawn rules'
     },
+    {
+        id: 'damage_source_not_found',
+        pattern: "{pack_name} | actor_definitions | {file_path|json_path} | Damage Source not found: {name}",
+        name: 'Damage source invalid'
+    },
 
     // Molang
     {
         id: 'property_not_found',
-        pattern: "{context} | Error: {expression} called on an actor without a property component.",
+        pattern: "{context|} | Error: {expression} called on an actor without a property component.",
         name: 'Property missing'
     },
 
@@ -134,7 +152,10 @@ export const IssueTypes: IssueType[] = [
         values: {
             asset_type: 'block',
             resource_type: 'block_component'
-        }
+        },
+        info: [
+            'This can potentially be caused by the script not loading at all, or by the component registration code not running correctly within the "worldInitialize" event in scripting v1.'
+        ]
     },
     {
         id: 'block_baked_material',
@@ -142,7 +163,10 @@ export const IssueTypes: IssueType[] = [
         name: 'Block must have a baked material',
         values: {
             asset_type: 'block'
-        }
+        },
+        info: [
+            'The error message does not specify which block is affected.'
+        ]
     },
     {
         id: 'block_geometry_not_found',

@@ -21,7 +21,7 @@ function extractVariables(template: string, input: string): Record<string, strin
 				// @ts-ignore
 				if (keys.length && values.length) variables[keys.shift()??''] = values.shift();
 				// @ts-ignore
-				if (keys.length && values.length) variables[keys.pop()??''] = values.pop();
+				if (keys.length > 1 && values.length) variables[keys.pop()??''] = values.pop();
 				while (keys.length > 1 && values.length) {
 					// @ts-ignore
 					if (keys.length && values.length) variables[keys.pop()??''] = values.pop();
@@ -44,6 +44,9 @@ function extractVariables(template: string, input: string): Record<string, strin
 			return null;
 		}
 		ii++;
+	}
+	for (let key in variables) {
+		if (!key || !variables[key]) delete variables[key];
 	}
 	return variables;
 }
