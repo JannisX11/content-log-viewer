@@ -89,13 +89,7 @@ import { Plus, Search, Trash, X, AlertTriangle, AlertCircle, ChevronRight, Chevr
 import IssueDetails from './components/IssueDetails.vue';
 import { Issue, parseLog } from './scripts/parse_log'
 import { IssueType, IssueTypes, TypeLabels, ValueLabels } from './scripts/issue_types';
-
-
-// @ts-ignore
-import demo_log from './../log samples/all.txt?raw'
 import { nextTick } from 'vue';
-parseLog(demo_log);
-
 
 const collator = new Intl.Collator('en');
 
