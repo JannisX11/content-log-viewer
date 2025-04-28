@@ -130,7 +130,7 @@ export class Issue {
 			this.values.message = this.original_message;
 		}
 
-		if (!Issue.all.find(iss2 => iss2.original_message == this.original_message)) {
+		if (!Issue.all.find(iss2 => iss2.original_message == this.original_message || iss2.sameAs(this))) {
 			Issue.all.push(this);
 		}
 	}
@@ -155,6 +155,19 @@ export class Issue {
 				}
 			}
 			if (match == false) return false;
+		}
+		return true;
+	}
+	sameAs(other: Issue): boolean {
+		if (this.asset_type != other.asset_type) return false;
+		if (this.asset_id != other.asset_id) return false;
+		if (this.resource_type != other.resource_type) return false;
+		if (this.resource_id != other.resource_id) return false;
+		if (this.category != other.category) return false;
+		if (this.severity != other.severity) return false;
+		if (this.text != other.text) return false;
+		for (let key in this.values) {
+			if (this.values[key] != other.values[key]) return false;
 		}
 		return true;
 	}

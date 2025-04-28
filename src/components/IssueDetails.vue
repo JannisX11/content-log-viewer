@@ -34,13 +34,13 @@
                 <span class="field_value" :class="{limited_length: key == 'file_path'}">{{ value }}</span>
             </div>
 
-            <h3>Error Message</h3>
-            <div class="field_value">{{ issue.original_message }}</div>
-
             <h3 v-if="issue_info.length">Info</h3>
             <div v-for="info in issue_info">
                 {{ info }}
             </div>
+
+            <h3>Error Message</h3>
+            <div class="field_value">{{ issue.original_message }}</div>
         </main>
 
         <button @click="$el.close()">Close</button>

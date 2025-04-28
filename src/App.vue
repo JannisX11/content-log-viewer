@@ -64,10 +64,10 @@
 							</template>
 							<template v-for="(value, key) in issue.values">
 								<label class="field_label">{{ value_labels[key] || key }}</label>
-								<span class="field_value" :class="{limited_length: key == 'file_path'}">{{ value }}</span>
+								<span class="field_value" :class="{limited_length: key == 'file_path' || key == 'names'}">{{ value }}</span>
 							</template>
 
-							<div class="issue_icon clear_button" @click="clearIssue(issue)">
+							<div class="issue_icon clear_button" @pointerdown.stop @click="clearIssue(issue)">
 								<Trash :size="20" />
 							</div>
 
@@ -235,7 +235,7 @@ export default {
 						groups[key] = {
 							key,
 							name: issue.asset_id || 'Other',
-							type: issue.asset_type,
+							type: issue.asset_id ? issue.asset_type : '',
 							issues: [],
 						};
 					}
@@ -262,16 +262,55 @@ export default {
 		}
 	},
 	mounted() {
+		const loadLog = (log: string) => {
+			if (!log) return;
+			parseLog(log);
+			this.update();
+		}
+
 		document.addEventListener('paste', (event) => {
 			if (document.querySelector('input:focus, textarea:focus')) {
 				return;
 			}
 			const pasted_text = event.clipboardData?.getData('text');
 			if (pasted_text) {
-				parseLog(pasted_text);
-				this.update();
+				loadLog(pasted_text);
 			}
 		});
+		
+		// File Drop
+		function dropHandler(ev: DragEvent) {
+			console.log("File(s) dropped");
+			ev.preventDefault();
+			if (!ev.dataTransfer) return;
+
+			if (ev.dataTransfer.items) {
+				[...ev.dataTransfer.items].forEach((item, i) => {
+					if (item.kind === "file") {
+						const file = item.getAsFile();
+						file?.text().then(text => {
+							loadLog(text);
+						})
+					} else if (item.kind == "string" && item.type == 'text/plain') {
+						item.getAsString((text: string) => {
+							loadLog(text)
+						})
+					}
+				});
+			} else {
+				[...ev.dataTransfer.files].forEach((file, i) => {
+					file?.text().then(text => {
+						loadLog(text);
+					})
+				});
+			}
+		}
+		document.addEventListener('drop', dropHandler);
+		document.addEventListener('dragover', function dragOverHandler(ev: DragEvent) {
+			// Prevent default behavior (Prevent file from being opened)
+			ev.preventDefault();
+		});
+
 	}
 }
 </script>

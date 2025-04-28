@@ -5,20 +5,68 @@ type Info = string | {
     if(issue: Issue): boolean
 }
 export interface IssueType {
+    /**
+     * The ID of the issue type. Should be snake case.
+     * Multiple issue types can have the same ID in edge cases if the information they convey is identical
+     */
 	id: string
+    /**
+     * The display name of the issue, should be short but explain what the issue is.
+     */
 	name: string
+    /**
+     * The pattern to match an issue.
+     * Should be the log output minus the "[category][severity]-" part at the start.
+     * A variable name in curly brackets can be used to extract a variable out of the log message.
+     * In edge cases a pattern like {file_path|json_path|value} can be used to match a log message that includes multiple sections separated by " | " where the exact number of segments is unknown. The first and last variable get the first and last segment respectively, while the middle variable will retrieve all remaining segments.
+     * @example Block name = '{asset_id}' | Error with geometry component: cannot find {resource_id} geometry JSON.
+     */
 	pattern?: string
+    /**
+     * A more in-depth description about the issue and what is causing it. Should be 1-3 sentences as a rough guideline.
+     */
 	description?: string
+    /**
+     * An override for the issue category, indicating which system the issue belongs to.
+     * Usually the category is provided by Minecraft in square brackets at the start of a log message. This field should only be used if the category provided by Minecraft is unintuitive.
+     */
     category?: string
+    /**
+     * Set default values to fields of the issue that are known by the issue type regardless of the exact log message.
+     */
 	values?: {
+        /**
+         * Asset type describes the type of asset/object involved in the issue. E. g. a block, entity, biome etc.
+         */
         asset_type?: string
+        /**
+         * Asset ID is the identifier of the asset/object
+         */
         asset_id?: string
+        /**
+         * Resource type is the type of resource that contains the issue, e. g. geometry, animation etc.
+         */
         resource_type?: string
+        /**
+         * Resource ID is the identifier of the affected resource
+         */
         resource_id?: string
+        /**
+         * Other values can be provided
+         */
         [key: string]: string | undefined
 	},
+    /**
+     * Additional info about an error or warning, including but not limited to unintuitive causes for the issue, side effects, and infos how to avoid or solve it.
+     * Individual info lines can also be conditioned to only appear if certain conditions about the issue are met.
+     */
     info?: Info[]
 }
+
+
+/**
+ * List of all possible issue types. Should be sorted by category as much as possible
+ */
 export const IssueTypes: IssueType[] = [
     // Entity
 	{
@@ -104,6 +152,7 @@ export const IssueTypes: IssueType[] = [
             resource_type: 'animation'
         }
     },
+
     // Entity behavior
     {
         id: 'load_properties_error',
@@ -253,7 +302,27 @@ export const IssueTypes: IssueType[] = [
         values: {
             resource_type: 'jigsaw_pool'
         }
-    }
+    },
+
+    // Commands
+    {
+        id: 'failed_to_load_function',
+        pattern: "Function {resource_id} failed to load correctly with error(s):",
+        name: 'Failed to load function',
+        values: {
+            resource_type: 'function'
+        }
+    },
+    {
+        id: 'unknown_command',
+        pattern: "Error on line {line}: unknown or invalid command '{command}'",
+        name: 'Unknown Command'
+    },
+    {
+        id: 'command_syntax_error',
+        pattern: `Error on line {line}: command failed to parse with error 'Syntax error: {message}'`,
+        name: 'Command Syntax Error'
+    },
 ];
 
 export const IssueTypeScriptWarning = {
@@ -275,7 +344,9 @@ export const IssueTypeUnknown = {
     }
 };
 
-
+/**
+ * Display strings for how types of assets or resources are labeled in the UI
+ */
 export const TypeLabels: Record<string, string> = {
     entity: 'Entity',
     block: 'Block',
@@ -297,6 +368,9 @@ export const TypeAliases: Record<string, string> = {
     Geometries: 'geometry'
 }
 
+/**
+ * Display labels for variables that are extracted from log messages
+ */
 export const ValueLabels: Record<string, string> = {
     message: 'Message',
     file_path: 'File',
@@ -309,5 +383,7 @@ export const ValueLabels: Record<string, string> = {
     expression: 'Expression',
     json_error: 'JSON Error',
     correct_type: 'Expected Type',
-    scope: 'Scope'
+    scope: 'Scope',
+    line: 'Line',
+    command: 'Command',
 }
