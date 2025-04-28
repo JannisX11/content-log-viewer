@@ -1,4 +1,4 @@
-import { IssueType, IssueTypes, IssueTypeScriptError, IssueTypeScriptWarning, IssueTypeUnknown, TypeAliases } from "./issue_types"
+import { IssueType, IssueTypes, IssueTypeScriptError, IssueTypeScriptLog, IssueTypeScriptWarning, IssueTypeUnknown, TypeAliases } from "./issue_types"
 
 function extractVariables(template: string, input: string): Record<string, string> | null {
 	let variables: Record<string, string> = {};
@@ -15,7 +15,6 @@ function extractVariables(template: string, input: string): Record<string, strin
 				let pattern_match_end: number = template[ti] ? input.substring(ii).lastIndexOf(end_match) : -1;
 				let value: string = input.substring(ii, pattern_match_end != -1 ? ii+pattern_match_end : undefined);
 				ii += value.length;
-				console.log({variable, value, pattern_match_end, char: template[ti]});
 				let values = value.split(/\s*\|\s*/);
 				let keys = variable.split('|');
 				// @ts-ignore
@@ -33,7 +32,6 @@ function extractVariables(template: string, input: string): Record<string, strin
 			} else {
 				let pattern_match_end: number = template[ti] ? input.substring(ii).indexOf(end_match) : -1;
 				let value: string = input.substring(ii, pattern_match_end != -1 ? ii+pattern_match_end : undefined);
-				console.log({variable, value, pattern_match_end, char: template[ti]});
 				
 				ii += value.length;
 				if (value) variables[variable] = value;
@@ -69,7 +67,8 @@ export class Issue {
 	original_message: string
 	
 	category: string
-	severity: 'warning'|'error'
+	severity: 'verbose'|'warning'|'error'
+	timestamp?: string
 	text?: string
 	asset_type?: string
 	asset_id?: string
@@ -78,9 +77,14 @@ export class Issue {
 	values: Record<string, string>
 
 	constructor(input: string) {
+		if (input.match(/^\d\d/)) {
+			this.timestamp = input.substring(0, 8);
+			input = input.substring(8);
+		}
+		
 		this.original_message = input;
 		this.values = {};
-
+		
 		let tags_section = input.match(/^(\[\w+\])+/)?.[0];
 		if (tags_section) {
 			let tags = tags_section.replace(/\[/g, '').split(']').filter(tag => tag);
@@ -88,7 +92,7 @@ export class Issue {
 			if (tags[0]) this.category = tags[0];
 			if (this.category == 'Actor') this.category = 'Entity';
 
-			if (tags[1]) this.severity = tags[1] == 'error' ? 'error' : 'warning';
+			if (tags[1]) this.severity = tags[1] == 'error' ? 'error' : tags[1] == 'warning' ? 'warning' : 'verbose';
 			input = input.substring(tags_section.length+1).replace(/[\r\n]+/g, '');
 		}
 
@@ -122,8 +126,10 @@ export class Issue {
 			this.text = input;
 			if (this.severity == 'warning') {
 				this.type = IssueTypeScriptWarning;
-			} else {
+			} else if (this.severity == 'error') {
 				this.type = IssueTypeScriptError;
+			} else {
+				this.type = IssueTypeScriptLog;
 			}
 		} else if (!this.type) {
 			this.type = IssueTypeUnknown;
@@ -179,12 +185,10 @@ export class Issue {
 export function parseLog(log: string) {
 	Issue.all.splice(0, Infinity);
 
-	let lines = log.split(/[\r\n]+\[/g);
+	let lines = log.split(/[\r\n]+(?=(\d+:\d+:\d+)?\[)/g);
 	for (let line of lines) {
-		console.log(line)
-		if (line && line.length > 5) {
-			console.log(line)
-			new Issue(line.startsWith('[') ? line : ('['+line));
+		if (line && line.length > 5 && line.includes('[')) {
+			new Issue(line);
 		}
 	}
 	console.log(Issue.all)

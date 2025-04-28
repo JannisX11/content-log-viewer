@@ -30,7 +30,8 @@
 						</div>
 						<div class="severity issue_icon" v-if="group.severity">
 							<AlertTriangle v-if="group.severity == 'warning'" style="color: var(--color-warning)" :size="20" />
-							<AlertCircle v-else style="color: var(--color-error)" :size="20" />
+							<AlertCircle v-else-if="group.severity == 'error'" style="color: var(--color-error)" :size="20" />
+							<MessageCircleWarning v-else :size="20" />
 						</div>
 						<span class="issue_group_count">{{ group.issues.length }}</span>
 						<label class="group_type_tag" v-if="group.type">{{ type_labels[group.type] ?? group.type }}</label>
@@ -44,7 +45,8 @@
 						<li v-for="issue in group.issues" class="issue" :class="{selected: issue == selected_issue}" @pointerdown.stop="pointerDownIssue(issue, $event)" @dblclick.stop="openIssueDetails(issue)">
 							<div class="severity issue_icon" v-if="issue.severity">
 								<AlertTriangle v-if="issue.severity == 'warning'" style="color: var(--color-warning)" :size="20" />
-								<AlertCircle v-else style="color: var(--color-error)" :size="20" />
+								<AlertCircle v-else-if="group.severity == 'error'" style="color: var(--color-error)" :size="20" />
+								<MessageCircleWarning v-else :size="20" />
 							</div>
 
 							<template v-if="group_by != 'issue'">
@@ -85,7 +87,7 @@
 
 <script lang="ts">
 
-import { Plus, Search, Trash, X, AlertTriangle, AlertCircle, ChevronRight, ChevronDown } from 'lucide-vue-next'
+import { Plus, Search, Trash, X, AlertTriangle, AlertCircle, MessageCircleWarning, ChevronRight, ChevronDown } from 'lucide-vue-next'
 import IssueDetails from './components/IssueDetails.vue';
 import { Issue, parseLog } from './scripts/parse_log'
 import { IssueType, IssueTypes, TypeLabels, ValueLabels } from './scripts/issue_types';
@@ -111,6 +113,7 @@ export default {
 		X,
 		AlertTriangle,
 		AlertCircle,
+		MessageCircleWarning,
 		ChevronRight,
 		ChevronDown,
 		IssueDetails
@@ -143,7 +146,6 @@ export default {
 			this.update();
 		},
 		update() {
-			console.log('UPDATE')
 			let g = this.group_by;
 			this.group_by = 'a';
 			this.group_by = g;

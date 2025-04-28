@@ -7,7 +7,8 @@
         <h2>
             <template v-if="issue && issue.severity">
                 <AlertTriangle v-if="issue.severity == 'warning'" style="color: var(--color-warning)" :size="24" />
-                <AlertCircle v-else style="color: var(--color-error)" :size="26" />
+                <AlertCircle v-else-if="issue.severity == 'error'" style="color: var(--color-error)" :size="26" />
+                <MessageCircleWarning v-else :size="26" />
             </template>
             {{ issue?.type.name }}
         </h2>
@@ -17,6 +18,10 @@
             <h3>Details</h3>
 
             <p v-if="issue.type.description">{{ issue.type.description }}</p>
+            <div class="issue_detain_line" v-if="issue.timestamp">
+                <label class="field_label">Timestamp</label>
+                <span class="field_value">{{ issue.timestamp }}</span>
+            </div>
             <div class="issue_detain_line" v-if="issue.text">
                 <label class="field_label">Message</label>
                 <span class="field_value">{{ issue.text }}</span>
@@ -50,7 +55,7 @@
 
 <script lang="ts">
 
-import { Plus, Search, Trash, X, AlertTriangle, AlertCircle, ChevronRight, ChevronDown } from 'lucide-vue-next'
+import { Plus, Search, Trash, X, AlertTriangle, AlertCircle, ChevronRight, ChevronDown, MessageCircleWarning } from 'lucide-vue-next'
 import { TypeLabels, ValueLabels } from '../scripts/issue_types';
 import { Issue } from '../scripts/parse_log';
 
@@ -63,7 +68,8 @@ export default {
 		AlertTriangle,
 		AlertCircle,
 		ChevronRight,
-		ChevronDown
+		ChevronDown,
+        MessageCircleWarning
 	},
     props: {
         issue: Issue
@@ -79,7 +85,6 @@ export default {
             let rect = (event.target as HTMLElement).getBoundingClientRect();
             let in_dialog = (event.clientX > rect.x && event.clientX < rect.right && event.clientY > rect.y && event.clientY < rect.bottom);
             if (!in_dialog) this.$el.close();
-            console.log(event)
         }
 	},
     computed: {

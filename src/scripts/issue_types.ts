@@ -152,6 +152,15 @@ export const IssueTypes: IssueType[] = [
             resource_type: 'animation'
         }
     },
+    {
+        id: 'animation_not_found',
+        pattern: "{asset_id} | Error: can't find animation {resource_id}",
+        name: 'Animation is missing',
+        values: {
+            asset_type: 'entity',
+            resource_type: 'animation'
+        }
+    },
 
     // Entity behavior
     {
@@ -325,6 +334,12 @@ export const IssueTypes: IssueType[] = [
     },
 ];
 
+export const IssueTypeScriptLog = {
+    id: 'script_log',
+    name: 'Script Log',
+    values: {
+    }
+};
 export const IssueTypeScriptWarning = {
     id: 'script_warning',
     name: 'Script Warning',
