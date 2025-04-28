@@ -29,9 +29,7 @@
 							<ChevronDown v-else :size="20" />
 						</div>
 						<div class="severity issue_icon" v-if="group.severity">
-							<AlertTriangle v-if="group.severity == 'warning'" style="color: var(--color-warning)" :size="20" />
-							<AlertCircle v-else-if="group.severity == 'error'" style="color: var(--color-error)" :size="20" />
-							<MessageCircleWarning v-else :size="20" />
+							<SeverityIcon :severity="group.severity" :size="20" />
 						</div>
 						<span class="issue_group_count">{{ group.issues.length }}</span>
 						<label class="group_type_tag" v-if="group.type">{{ type_labels[group.type] ?? group.type }}</label>
@@ -44,9 +42,7 @@
 					<ul v-if="group_opened[group.key]">
 						<li v-for="issue in group.issues" class="issue" :class="{selected: issue == selected_issue}" @pointerdown.stop="pointerDownIssue(issue, $event)" @dblclick.stop="openIssueDetails(issue)">
 							<div class="severity issue_icon" v-if="issue.severity">
-								<AlertTriangle v-if="issue.severity == 'warning'" style="color: var(--color-warning)" :size="20" />
-								<AlertCircle v-else-if="group.severity == 'error'" style="color: var(--color-error)" :size="20" />
-								<MessageCircleWarning v-else :size="20" />
+								<SeverityIcon :severity="issue.severity" :size="20" />
 							</div>
 
 							<template v-if="group_by != 'issue'">
@@ -92,6 +88,7 @@ import IssueDetails from './components/IssueDetails.vue';
 import { Issue, parseLog } from './scripts/parse_log'
 import { IssueType, IssueTypes, TypeLabels, ValueLabels } from './scripts/issue_types';
 import { nextTick } from 'vue';
+import SeverityIcon from './components/SeverityIcon.vue';
 
 const collator = new Intl.Collator('en');
 
@@ -116,7 +113,8 @@ export default {
 		MessageCircleWarning,
 		ChevronRight,
 		ChevronDown,
-		IssueDetails
+		IssueDetails,
+		SeverityIcon
 	},
 	data() {
 		return {

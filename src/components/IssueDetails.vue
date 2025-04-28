@@ -6,9 +6,7 @@
 	<dialog id="issue_view" @click="click($event)">
         <h2>
             <template v-if="issue && issue.severity">
-                <AlertTriangle v-if="issue.severity == 'warning'" style="color: var(--color-warning)" :size="24" />
-                <AlertCircle v-else-if="issue.severity == 'error'" style="color: var(--color-error)" :size="26" />
-                <MessageCircleWarning v-else :size="26" />
+				<SeverityIcon :severity="issue.severity" :size="26" />
             </template>
             {{ issue?.type.name }}
         </h2>
@@ -58,6 +56,7 @@
 import { Plus, Search, Trash, X, AlertTriangle, AlertCircle, ChevronRight, ChevronDown, MessageCircleWarning } from 'lucide-vue-next'
 import { TypeLabels, ValueLabels } from '../scripts/issue_types';
 import { Issue } from '../scripts/parse_log';
+import SeverityIcon from './SeverityIcon.vue';
 
 export default {
 	components: {
@@ -69,7 +68,8 @@ export default {
 		AlertCircle,
 		ChevronRight,
 		ChevronDown,
-        MessageCircleWarning
+        MessageCircleWarning,
+        SeverityIcon
 	},
     props: {
         issue: Issue
