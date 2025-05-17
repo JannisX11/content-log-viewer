@@ -17,16 +17,18 @@ function extractVariables(template: string, input: string): Record<string, strin
 				ii += value.length;
 				let values = value.split(/\s*\|\s*/);
 				let keys = variable.split('|');
-				// @ts-ignore
-				if (keys.length && values.length) variables[keys.shift()??''] = values.shift();
-				// @ts-ignore
-				if (keys.length > 1 && values.length) variables[keys.pop()??''] = values.pop();
-				while (keys.length > 1 && values.length) {
-					// @ts-ignore
-					if (keys.length && values.length) variables[keys.pop()??''] = values.pop();
-				}
-				if (keys.length == 1) {
-					variables[keys[0]] = values.join(' | ');
+
+				while (keys.length && values.length) {
+					if (keys[0].endsWith('+') == false) {
+						// @ts-ignore
+						if (keys.length && values.length) variables[keys.shift()??''] = values.shift();
+					} else if (keys.at(-1)?.endsWith('+') == false) {
+						// @ts-ignore
+						if (keys.length && values.length) variables[keys.pop()??''] = values.pop();
+					} else {
+						let key = keys.pop()!.replace('+', '');
+						variables[key] = values.join(' | ');
+					}
 				}
 
 			} else {
@@ -100,6 +102,13 @@ export class Issue {
 			let variables = type.pattern && extractVariables(type.pattern, input);
 			if (variables) {
 				this.type = type;
+				if (type.process) {
+					for (let key in variables) {
+						if (type.process[key] && variables[key]) {
+							variables[key] = type.process[key](variables[key]);
+						}
+					}
+				}
 
 				this.asset_type = variables.asset_type ?? type.values?.asset_type ?? '';
 				this.asset_id = variables.asset_id ?? type.values?.asset_id ?? '';
@@ -165,6 +174,7 @@ export class Issue {
 		return true;
 	}
 	sameAs(other: Issue): boolean {
+		if (this.type.id != other.type.id) return false;
 		if (this.asset_type != other.asset_type) return false;
 		if (this.asset_id != other.asset_id) return false;
 		if (this.resource_type != other.resource_type) return false;

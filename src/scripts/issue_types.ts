@@ -18,7 +18,7 @@ export interface IssueType {
      * The pattern to match an issue.
      * Should be the log output minus the "[category][severity]-" part at the start.
      * A variable name in curly brackets can be used to extract a variable out of the log message.
-     * In edge cases a pattern like {file_path|json_path|value} can be used to match a log message that includes multiple sections separated by " | " where the exact number of segments is unknown. The first and last variable get the first and last segment respectively, while the middle variable will retrieve all remaining segments.
+     * In edge cases a pattern like {file_path|json_path+|value} can be used to match a log message that includes multiple sections separated by " | " where the exact number of segments is unknown. A + symbol at the end of a variable name indicates which variable acts as the catch-all. Only one variable per pattern can be a catch-all.
      * @example Block name = '{asset_id}' | Error with geometry component: cannot find {resource_id} geometry JSON.
      */
 	pattern?: string
@@ -56,6 +56,12 @@ export interface IssueType {
          */
         [key: string]: string | undefined
 	},
+    /**
+     * Process certain variables before displaying them
+     */
+    process?: {
+        [key: string]: (input: string) => string
+    }
     /**
      * Additional info about an error or warning, including but not limited to unintuitive causes for the issue, side effects, and infos how to avoid or solve it.
      * Individual info lines can also be conditioned to only appear if certain conditions about the issue are met.
@@ -191,7 +197,7 @@ export const IssueTypes: IssueType[] = [
     },
     {
         id: 'damage_source_not_found',
-        pattern: "{pack_name} | actor_definitions | {file_path|json_path} | Damage Source not found: {name}",
+        pattern: "{pack_name} | actor_definitions | {file_path|json_path+} | Damage Source not found: {name}",
         name: 'Damage source invalid'
     },
 
@@ -253,17 +259,17 @@ export const IssueTypes: IssueType[] = [
     },
     {
         id: 'invalid_json_field',
-        pattern: "{file_path|json_path|value} | child '{value}' not valid here.",
+        pattern: "{file_path|json_path+|value} | child '{value}' not valid here.",
         name: 'Invalid JSON Field'
     },
     {
         id: 'invalid_json_type',
-        pattern: "{file_path|json_path|name} | unknown child schema option type.  Allowed types:  '{correct_type}'",
+        pattern: "{file_path|json_path+|name} | unknown child schema option type.  Allowed types:  '{correct_type}'",
         name: 'Invalid JSON value type',
     },
     {
         id: 'json_field_not_found',
-        pattern: '{file_path|json_path} | Required child {key} not found',
+        pattern: '{file_path|json_path+} | Required child {key} not found',
         name: 'Required child missing in JSON',
     },
     {
@@ -331,6 +337,28 @@ export const IssueTypes: IssueType[] = [
         id: 'command_syntax_error',
         pattern: `Error on line {line}: command failed to parse with error 'Syntax error: {message}'`,
         name: 'Command Syntax Error'
+    },
+
+    // UI
+    {
+        id: 'ui_no_binding_name',
+        pattern: '{ui_controls+|ui_path} | JSON UI parse failure: Must define a binding name!',
+        process: {
+            ui_path: (input) => {return input.replace(/On Control Path: /, '');},
+            ui_controls: (input) => {return input.replace(/UI Control: /g, '');}
+        },
+        name: 'UI binding name missing',
+        description: 'Error parsing JSON UI. A binding name must be defined',
+    },
+    {
+        id: 'ui_no_property_in_data_binding',
+        pattern: '{ui_controls+|ui_path} | Data bindings must have at least one property to bind!',
+        process: {
+            ui_path: (input) => {return input.replace(/On Control Path: /, '');},
+            ui_controls: (input) => {return input.replace(/UI Control: /g, '');}
+        },
+        name: 'No property in UI data binding',
+        description: 'No property was found. Data bindings must have at least one property to bind.',
     },
 ];
 
@@ -401,4 +429,6 @@ export const ValueLabels: Record<string, string> = {
     scope: 'Scope',
     line: 'Line',
     command: 'Command',
+    ui_controls: 'UI Controls',
+    ui_path: 'UI Path',
 }

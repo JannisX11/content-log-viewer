@@ -73,7 +73,10 @@
 						</li>
 					</ul>
 				</li>
-				<template v-if="groups.length == 0">No issues...</template>
+				<template v-if="groups.length == 0">
+					No issues...
+					<p class="no_issues_message" v-if="issues.length == 0">Drop a log file, or press Ctrl + V to paste a log</p>
+				</template>
 			</ul>
 		</div>
 		<IssueDetails ref="issue_dialog" v-if="selected_issue" :issue="selected_issue" />
@@ -262,8 +265,13 @@ export default {
 		}
 	},
 	mounted() {
-		const loadLog = (log: string) => {
-			if (!log) return;
+		const loadLog = (log: string, is_file: boolean = false) => {
+			if (!log) {
+				if (is_file) {
+					alert('The file you uploaded is either emtpy or too large to be supported by the web browser')
+				}
+				return;
+			}
 			parseLog(log);
 			this.update();
 		}
@@ -289,7 +297,7 @@ export default {
 					if (item.kind === "file") {
 						const file = item.getAsFile();
 						file?.text().then(text => {
-							loadLog(text);
+							loadLog(text, true);
 						})
 					} else if (item.kind == "string" && item.type == 'text/plain') {
 						item.getAsString((text: string) => {
@@ -300,7 +308,7 @@ export default {
 			} else {
 				[...ev.dataTransfer.files].forEach((file, i) => {
 					file?.text().then(text => {
-						loadLog(text);
+						loadLog(text, true);
 					})
 				});
 			}
@@ -352,6 +360,10 @@ header .tool {
 	width: 100%;
 	max-width: 1000px;
 	margin: 0 auto;
+}
+.no_issues_message {
+	text-align: center;
+	margin-top: 30px;
 }
 .group_bar {
 	display: flex;
