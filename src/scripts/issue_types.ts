@@ -135,6 +135,15 @@ export const IssueTypes: IssueType[] = [
         }
     },
     {
+        id: 'friendly_name_not_found',
+        pattern: "friendly name '{name}' not found in entity friendly name list ({names}) - check your spelling?",
+        name: 'Friendly name not found in entity',
+        values: {
+            resource_type: 'render_controller',
+            asset_type: 'entity',
+        }
+    },
+    {
         id: 'duplicate_locator',
         pattern: "{asset_id} | {asset_id} | Locator: Error: model already has a locator {name} that doesn't exactly match the one wanting to be added - skipping new definition in {resource_id}",
         name: 'Duplicate Locator',
@@ -200,12 +209,29 @@ export const IssueTypes: IssueType[] = [
         pattern: "{pack_name} | actor_definitions | {file_path|json_path+} | Damage Source not found: {name}",
         name: 'Damage source invalid'
     },
+    {
+        id: 'behavior_particle_not_found',
+        pattern: "{pack_name} | actor_definitions | {file_path|json_path+} | Invalid particle type {name} specified.",
+        name: 'Invalid particle type',
+        values: {
+            asset_type: 'entity',
+            resource_type: 'particle'
+        },
+        info: [
+            'Only vanilla particle types such as "snowballpoof" are valid here'
+        ]
+    },
 
     // Molang
     {
         id: 'property_not_found',
         pattern: "{context|} | Error: {expression} called on an actor without a property component.",
         name: 'Property missing'
+    },
+    {
+        id: 'molang_operator_missing_parameters',
+        pattern: "{pack_name} | {file_path|json_path+|expression} operator (math, query, loop, etc) with empty parameter list should have failed to parse",
+        name: 'Missing Molang parameters'
     },
 
     // Block
@@ -248,6 +274,42 @@ export const IssueTypes: IssueType[] = [
         values: {
             asset_type: 'block',
             resource_type: 'geometry',
+        }
+    },
+    {
+        id: 'unknown_block_referenced',
+        pattern: "Unknown block during Deferred BlockDescriptor resolution: {asset_id}",
+        name: 'Unknown or incorrect block identifier referenced',
+        values: {
+            asset_type: 'block',
+        },
+        info: [
+            'An unknown block identifier was referenced in a JSON file such as a behavior entity file or spawn rule.'
+        ]
+    },
+    // Item
+    {
+        id: 'item_json_field_invalid',
+        pattern: "{asset_id} -> {json_path}: this member was found in the input, but is not present in the Schema",
+        name: 'Invalid JSON Field',
+        values: {
+            asset_type: 'item'
+        }
+    },
+    {
+        id: 'missing_referenced_asset',
+        pattern: "{json_path}: Missing referenced asset",
+        name: 'Referenced Asset is missing',
+        values: {
+            asset_type: 'item'
+        }
+    },
+    {
+        id: 'missing_referenced_asset',
+        pattern: " -> {json_path} Missing referenced asset {asset}",
+        name: 'Referenced Asset is missing',
+        values: {
+            asset_type: 'item'
         }
     },
 
@@ -394,6 +456,7 @@ export const TypeLabels: Record<string, string> = {
     entity: 'Entity',
     block: 'Block',
     item: 'Item',
+    asset: 'Asset',
     render_controller: 'Render Controller',
     block_component: 'Block Component',
     material: 'Material',

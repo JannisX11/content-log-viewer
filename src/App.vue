@@ -20,6 +20,7 @@
 			<ul class="issue_group_list">
 				<li class="issue_group"
 					v-for="group of groups"
+					:key="group.key"
 					@click="selected_group = group.key"
 					:class="{selected: selected_group == group.key}"
 				>
@@ -40,7 +41,13 @@
 					</div>
 					<p v-if="group.issue_type?.description && group_opened[group.key]" class="description">{{ group.issue_type?.description }}</p>
 					<ul v-if="group_opened[group.key]">
-						<li v-for="issue in group.issues" class="issue" :class="{selected: issue == selected_issue}" @pointerdown.stop="pointerDownIssue(issue, $event)" @dblclick.stop="openIssueDetails(issue)">
+						<li v-for="issue in group.issues"
+							class="issue"
+							:class="{selected: issue == selected_issue}"
+							:key="issue.original_message + issue.timestamp"
+							@pointerdown.stop="pointerDownIssue(issue, $event)"
+							@dblclick.stop="openIssueDetails(issue)"
+						>
 							<div class="severity issue_icon" v-if="issue.severity">
 								<SeverityIcon :severity="issue.severity" :size="20" />
 							</div>
